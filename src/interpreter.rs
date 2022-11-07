@@ -4,7 +4,11 @@ use std::io;
 use dialoguer::*;
 use dialoguer::theme::ColorfulTheme;
 
+use crate::prelude::*;
+
+mod error;
 mod scanner;
+mod token;
 
 pub struct LoxInterpreter {}
 
@@ -76,7 +80,15 @@ impl LoxInterpreter {
   }
   
   fn run(&self, lox_source: String) -> io::Result<()> {
-    println!("Lox code: {lox_source}");
+    let mut tokenizer = scanner::Scanner::new(&lox_source);
+    let tokens = tokenizer.scan_tokens();
+    
+    for token in tokens.iter() {
+      match token {
+        Ok(t) => println!("{:?}", t),
+        Err(e) => eprintln!("{e}"),
+      }
+    }
     
     Ok(())
   }
