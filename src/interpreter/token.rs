@@ -2,7 +2,7 @@
 use crate::prelude::*;
 use super::error::Error;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TokenType {
   // Single-character tokens.
   LeftParen, RightParen, LeftBrace, RightBrace,
@@ -24,7 +24,7 @@ pub enum TokenType {
   SingleLineComment, Whitespace, Eof,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TokenLiteral {
   String(String),
   Integer(i32),
@@ -32,7 +32,7 @@ pub enum TokenLiteral {
   Bool(bool),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Token {
   pub token_type: TokenType,
   pub lexeme: String,
@@ -41,7 +41,25 @@ pub struct Token {
 }
 
 impl Token {
-  pub fn try_parse<'a>(source: &mut Peekable<Chars<'a>>, mut line: &mut i32) -> Result<Token, Error> {
+  pub fn tokenize(source: String) -> Vec<Result<Self, Error>> {
+    println!("Tokenizing source");
+    let mut tokens: Vec<Result<Token, Error>> = Vec::new();
+    let mut stream = source.chars().peekable();
+    let mut line = 1;
+    
+    loop {
+      if stream.clone().count() <= 0{
+        println!("End of token stream");
+        tokens.push(Self::try_parse(&mut stream, &mut line));
+        break
+      }
+      tokens.push(Self::try_parse(&mut stream, &mut line));
+    }
+    
+    tokens
+  }
+  
+  fn try_parse<'a>(source: &mut Peekable<Chars<'a>>, mut line: &mut i32) -> Result<Self, Error> {
     use TokenType::*;
     let c = match source.next() {
       Some(v) => v,
@@ -179,7 +197,52 @@ impl Token {
         }
       },
       'a'..='z' | 'A'..='Z' | '_' => {
-        unimplemented!("parse alpha characters")
+        let mut literal = std::string::String::from(c);
+        let keyword = |lit: std::string::String| -> TokenType {
+          match lit.as_str() {
+            "and" => And,
+            "class" => Class,
+            "else" => Else,
+            "false" => False,
+            "for" => For,
+            "fun" => Fun,
+            "if" => If,
+            "nil" => Nil,
+            "or" => Or,
+            "print" => Print,
+            "return" => Return,
+            "super" => Super,
+            "this" => This,
+            "true" => True,
+            "var" => Var,
+            "while" => While,
+            _ => Identifier,
+          }
+        };
+        loop {
+          let c = source.peek();
+          match c {
+            Some(c) => {
+              match c {
+                'a'..='z' | 'A'..='Z' | '0'..='9' | '_' => literal.push(source.next().unwrap()),
+                _ => {
+                  let ttype = keyword(literal.clone());
+                  if ttype == True || ttype == False {
+                    return Ok(Token { token_type: ttype, lexeme: literal.clone(), literal: Some(TokenLiteral::Bool(literal.as_str() == "true")), line: *line })
+                  }
+                  return Ok(Token { token_type: ttype, lexeme: literal, literal: None, line: *line })
+                },
+              }
+            },
+            _ => {
+              let ttype = keyword(literal.clone());
+              if ttype == True || ttype == False {
+                return Ok(Token { token_type: ttype, lexeme: literal.clone(), literal: Some(TokenLiteral::Bool(literal.as_str() == "true")), line: *line })
+              }
+              return Ok(Token { token_type: ttype, lexeme: literal, literal: None, line: *line })
+            },
+          }
+        }
       }
       _ => Err(Error::UnexpectedToken(*line, c.to_string())),
     }

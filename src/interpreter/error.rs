@@ -1,5 +1,6 @@
 use std::fmt::{Display, Formatter, Result};
 
+#[derive(Clone)]
 pub enum Error {
   UnexpectedToken(i32, String),
   UnterminatedString(i32),
