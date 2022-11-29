@@ -7,7 +7,9 @@ use dialoguer::theme::ColorfulTheme;
 use crate::prelude::*;
 
 mod error;
+mod expression;
 mod token;
+mod types;
 
 use token::Token;
 
