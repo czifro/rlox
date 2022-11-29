@@ -11,7 +11,7 @@ use value::*;
 
 /// Top-level trait for all expressions that represent
 /// the Lox grammar.
-pub trait LoxExpression {}
+pub trait LoxExpression: Sized {}
 
 /// Top-level struct for handling any expression
 /// within the Lox grammar.
@@ -26,6 +26,38 @@ where
 {
   pub fn inner(self) -> E {
     self.expression
+  }
+}
+
+pub trait LoxEvaluator<E>
+where
+  E: LoxExpression
+{
+  type Ok;
+  
+  type Error: std::error::Error;
+  
+  fn evaluate(self, expr: E) -> Result<Self::Ok, Self::Error>;
+}
+
+#[derive(Debug, Clone)]
+pub struct Evaluator;
+
+pub trait Evaluate: LoxExpression {
+  fn evaluate<E>(self, evaluator: E) -> Result<E::Ok, E::Error>
+  where
+    E: LoxEvaluator<Self>;
+}
+
+impl<E> Evaluate for E
+where
+  E: LoxExpression,
+{
+  fn evaluate<EV>(self, evaluator: EV) -> Result<EV::Ok, EV::Error>
+  where
+    EV: LoxEvaluator<Self>
+  {
+    evaluator.evaluate(self)
   }
 }
 

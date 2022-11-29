@@ -32,6 +32,13 @@ macro_rules! generate_ast {
       }
     }
     
+    impl Into<$val> for $expr {
+      fn into(self) -> $val {
+        let Self(v) = self;
+        v
+      }
+    }
+    
     impl From<$val> for Expression<$expr> {
       fn from(v: $val) -> Self {
         Self {
@@ -40,8 +47,24 @@ macro_rules! generate_ast {
       }
     }
     
+    impl Into<$val> for Expression<$expr> {
+      fn into(self) -> $val {
+        self.inner().into()
+      }
+    }
+    
     impl PrecedenceExpression for $expr {
       type Level = Zero;
+    }
+    
+    impl LoxEvaluator<$expr> for Evaluator {
+      type Ok = $val;
+      
+      type Error = crate::interpreter::error::Error;
+      
+      fn evaluate(self, expr: $expr) -> Result<Self::Ok, Self::Error> {
+        Ok(expr.into())
+      }
     }
   };
   {
