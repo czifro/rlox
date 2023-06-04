@@ -15,7 +15,7 @@ pub enum TokenType {
   Less, LessEqual,
   
   // Literals.
-  Identifier, String, Number,
+  Identifier, String, Integer, Float,
   
   // Keywords.
   And, Class, Else, False, Fun, Fn, For, If, Nil, Or,
@@ -30,6 +30,7 @@ pub enum TokenLiteral {
   Integer(i32),
   Float(f32),
   Bool(bool),
+  Nil(())
 }
 
 #[derive(Debug, Clone)]
@@ -40,7 +41,29 @@ pub struct Token {
   pub line: i32,
 }
 
+impl std::cmp::PartialEq for Token {
+  fn eq(&self, other: &Self) -> bool {
+    self.token_type == other.token_type
+  }
+}
+
 impl Token {
+  pub fn is_eof(&self) -> bool {
+    match self.token_type {
+      TokenType::Eof => true,
+      _ => false,
+    }
+  }
+
+  pub fn is_literal(&self) -> bool {
+    match self.token_type {
+      TokenType::Identifier | TokenType::String |
+      TokenType::Integer | TokenType::Float |
+      TokenType::True | TokenType::False | TokenType::Nil => true,
+      _ => false,
+    }
+  }
+
   pub fn tokenize(source: String) -> Vec<Result<Self, Error>> {
     println!("Tokenizing source");
     let mut tokens: Vec<Result<Token, Error>> = Vec::new();
@@ -175,11 +198,11 @@ impl Token {
                   if is_decimal {
                     return literal.parse::<f32>()
                       .map_err(|e| Error::UnparsableNumber(*line, e.to_string()))
-                      .map(|float| Token { token_type: Number, lexeme: literal, literal: Some(TokenLiteral::Float(float)), line: *line })
+                      .map(|float| Token { token_type: Float, lexeme: literal, literal: Some(TokenLiteral::Float(float)), line: *line })
                   }
                   return literal.parse::<i32>()
                     .map_err(|e| Error::UnparsableNumber(*line, e.to_string()))
-                    .map(|int| Token { token_type: Number, lexeme: literal, literal: Some(TokenLiteral::Integer(int)), line: *line })
+                    .map(|int| Token { token_type: Integer, lexeme: literal, literal: Some(TokenLiteral::Integer(int)), line: *line })
                 }
               }
             },
@@ -187,11 +210,11 @@ impl Token {
               if is_decimal {
                 return literal.parse::<f32>()
                   .map_err(|e| Error::UnparsableNumber(*line, e.to_string()))
-                  .map(|float| Token { token_type: Number, lexeme: literal, literal: Some(TokenLiteral::Float(float)), line: *line })
+                  .map(|float| Token { token_type: Float, lexeme: literal, literal: Some(TokenLiteral::Float(float)), line: *line })
               }
               return literal.parse::<i32>()
                 .map_err(|e| Error::UnparsableNumber(*line, e.to_string()))
-                .map(|int| Token { token_type: Number, lexeme: literal, literal: Some(TokenLiteral::Integer(int)), line: *line })
+                .map(|int| Token { token_type: Integer, lexeme: literal, literal: Some(TokenLiteral::Integer(int)), line: *line })
             }
           }
         }
@@ -229,6 +252,9 @@ impl Token {
                   let ttype = keyword(literal.clone());
                   if ttype == True || ttype == False {
                     return Ok(Token { token_type: ttype, lexeme: literal.clone(), literal: Some(TokenLiteral::Bool(literal.as_str() == "true")), line: *line })
+                  }
+                  if ttype == Nil {
+                    return Ok(Token { token_type: ttype, lexeme: literal.clone(), literal: Some(TokenLiteral::Nil(())), line: *line })
                   }
                   return Ok(Token { token_type: ttype, lexeme: literal, literal: None, line: *line })
                 },

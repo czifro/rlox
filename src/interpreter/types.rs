@@ -1,19 +1,12 @@
 use crate::prelude::*;
 
-pub trait LoxValue: Sized + DebugTrait + Clone {}
+pub trait LoxValue: DebugTrait {}
 
 pub trait LoxPrimitive: LoxValue {
   type Prim;
 }
 
 macro_rules! lox_type {
-  ($lt:ident) => {
-    #[derive(Debug, Clone, PartialEq)]
-    pub struct $lt;
-    
-    impl LoxValue for $lt {}
-  };
-
   ($lt:ident, $prim:ty) => {
     #[derive(Debug, Clone, PartialEq, PartialOrd)]
     pub struct $lt($prim);
@@ -43,7 +36,7 @@ lox_type!(LoxInteger, i32);
 lox_type!(LoxFloat, f32);
 lox_type!(LoxBool, bool);
 lox_type!(LoxString, String);
-lox_type!(LoxNil);
+lox_type!(LoxNil, ());
 
 pub trait LoxEq: LoxValue + PartialEq {
   fn equals(&self, v: Self) -> LoxBool;

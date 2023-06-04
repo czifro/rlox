@@ -1,32 +1,103 @@
 pub mod macros;
+pub mod parser;
 pub mod precedence;
-pub mod value;
+// pub mod value;
 
 use std::marker::PhantomData;
 
+use combine::*;
+use combine::parser::function;
+use combine::{
+  parser::{
+    choice,
+    token::{
+      satisfy,
+      satisfy_map,
+    },
+  },
+  stream::*,
+};
+
 use crate::interpreter::types::*;
+use crate::interpreter::token::*;
 use macros::generate_ast;
+// use parser::*;
 use precedence::*;
-use value::*;
+// use value::*;
 
 /// Top-level trait for all expressions that represent
 /// the Lox grammar.
-pub trait LoxExpression: Sized {}
+pub trait LoxExpression {}
+
+pub trait LoxValueExpression {
+  type Value: LoxValue;
+}
+
+impl<E> LoxValueExpression for Box<E>
+where
+  E: LoxValueExpression,
+{
+  type Value = E::Value;
+}
+
+impl<E> LoxExpression for E
+where
+  E: LoxValueExpression,
+{}
+
+pub trait BoxedLoxExpression {
+  type Expression: LoxExpression;
+  
+  fn unbox(self) -> Self::Expression;
+}
+
+impl<E> BoxedLoxExpression for Box<E>
+where
+  E: LoxExpression,
+{
+  type Expression = E;
+  
+  fn unbox(self) -> Self::Expression {
+    *self
+  }
+}
+
+pub trait IntoBoxedLoxExpression: LoxExpression {
+  fn into_boxed(self) -> Box<Self>;
+}
+
+impl<E> IntoBoxedLoxExpression for E
+where
+  E: LoxExpression,
+{
+  fn into_boxed(self) -> Box<Self> {
+    Box::from(self)
+  }
+}
 
 /// Top-level struct for handling any expression
 /// within the Lox grammar.
 #[derive(Debug, Clone)]
 pub struct Expression<E: LoxExpression> {
-  expression: E,
+  expression: Box<E>,
 }
 
 impl<E> Expression<E>
 where
   E: LoxExpression,
 {
-  pub fn inner(self) -> E {
-    self.expression
+  pub fn new(expression: E) -> Self {
+    Self { expression: expression.into_boxed() }
   }
+  pub fn inner(self) -> E {
+    self.expression.unbox()
+  }
+}
+
+impl<E> LoxExpression for Expression<E>
+where
+  E: LoxExpression
+{
 }
 
 pub trait LoxEvaluator<E>
@@ -43,23 +114,25 @@ where
 #[derive(Debug, Clone)]
 pub struct Evaluator;
 
-pub trait Evaluate: LoxExpression {
-  fn evaluate<E>(self, evaluator: E) -> Result<E::Ok, E::Error>
-  where
-    E: LoxEvaluator<Self>;
-}
+// pub trait Evaluate: LoxExpression {
+//   fn evaluate<E>(self, evaluator: E) -> Result<E::Ok, E::Error>
+//   where
+//     E: LoxEvaluator<Self>;
+// }
 
-impl<E> Evaluate for E
-where
-  E: LoxExpression,
-{
-  fn evaluate<EV>(self, evaluator: EV) -> Result<EV::Ok, EV::Error>
-  where
-    EV: LoxEvaluator<Self>
-  {
-    evaluator.evaluate(self)
-  }
-}
+// impl<E> Evaluate for E
+// where
+//   E: LoxExpression,
+// {
+//   fn evaluate<EV>(self, evaluator: EV) -> Result<EV::Ok, EV::Error>
+//   where
+//     EV: LoxEvaluator<Self>
+//   {
+//     evaluator.evaluate(self)
+//   }
+// }
+
+pub type TokenStream<'a> = SliceStream<'a, Token>;
 
 generate_ast! [
   {

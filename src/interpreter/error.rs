@@ -6,6 +6,7 @@ pub enum Error {
   UnterminatedString(i32),
   UnparsableNumber(i32, String),
   WrongTokenType(i32, String, String),
+  UnexpectedEof(i32),
 }
 
 impl Display for Error {
@@ -15,12 +16,17 @@ impl Display for Error {
       Self::UnterminatedString(line) => write!(fmt, "[line {line}] Error: Unterminated string literal."),
       Self::UnparsableNumber(line, message) => write!(fmt, "[line {line}] Error: {message}."),
       Self::WrongTokenType(line, actual, expected) => write!(fmt, "[line {line}] Error: Expected token type {expected}, found {actual}"),
+      Self::UnexpectedEof(line) => write!(fmt, "[line {line}] Error: Unexpected EOF."),
     }
   }
 }
 
-impl std::error::Error for Error {
-  fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-    Box::<dyn std::error::Error + Send + Sync>::from(format!("{self}")).source()
-  }
-}
+impl std::error::Error for Error {}
+
+// impl std::error::Error for Error {
+//   fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+//     let e = self.clone();
+//     let e = format!("{e}");
+//     Box::<dyn std::error::Error + Send + Sync>::from(e).source()
+//   }
+// }

@@ -41,9 +41,7 @@ macro_rules! generate_ast {
     
     impl From<$val> for Expression<$expr> {
       fn from(v: $val) -> Self {
-        Self {
-          expression: $expr::from(v),
-        }
+        Self::new($expr::from(v))
       }
     }
     
@@ -171,9 +169,7 @@ macro_rules! generate_ast {
       E: LoxValueExpression + $expr_trait<PrecedenceLeft = PL, PrecedenceRight = PR, Value = V, Left = L, Right = R>,
     {
       fn $func(left: Expression<E::Left>, right: Expression<E::Right>) -> Self {
-        Self {
-          expression: E::$func(left.inner(), right.inner()),
-        }
+        Self::new(E::$func(left.inner(), right.inner()))
       }
     }
   };
@@ -255,9 +251,7 @@ macro_rules! generate_ast {
       E: LoxValueExpression + $expr_trait<Precedence = P, Value = V, Expression = IE>,
     {
       fn $func(expr: Expression<E::Expression>) -> Self {
-        Self {
-          expression: E::$func(expr.inner()),
-        }
+        Self::new(E::$func(expr.inner()))
       }
     }
   };
@@ -310,9 +304,7 @@ macro_rules! generate_ast {
       E: LoxValueExpression<Value = V> + $expr_trait<Expression = IE>,
     {
       fn group(expr: Expression<E::Expression>) -> Self {
-        Self {
-          expression: E::group(expr.inner()),
-        }
+        Self::new(E::group(expr.inner()))
       }
     }
   };
