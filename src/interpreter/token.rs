@@ -48,21 +48,21 @@ impl std::cmp::PartialEq for Token {
 }
 
 impl Token {
-  pub fn is_eof(&self) -> bool {
-    match self.token_type {
-      TokenType::Eof => true,
-      _ => false,
-    }
-  }
-
-  pub fn is_literal(&self) -> bool {
-    match self.token_type {
-      TokenType::Identifier | TokenType::String |
-      TokenType::Integer | TokenType::Float |
-      TokenType::True | TokenType::False | TokenType::Nil => true,
-      _ => false,
-    }
-  }
+  // pub fn is_eof(&self) -> bool {
+  //   match self.token_type {
+  //     TokenType::Eof => true,
+  //     _ => false,
+  //   }
+  // }
+  //
+  // pub fn is_literal(&self) -> bool {
+  //   match self.token_type {
+  //     TokenType::Identifier | TokenType::String |
+  //     TokenType::Integer | TokenType::Float |
+  //     TokenType::True | TokenType::False | TokenType::Nil => true,
+  //     _ => false,
+  //   }
+  // }
 
   pub fn tokenize(source: String) -> Vec<Result<Self, Error>> {
     println!("Tokenizing source");
@@ -82,7 +82,7 @@ impl Token {
     tokens
   }
   
-  fn try_parse<'a>(source: &mut Peekable<Chars<'a>>, mut line: &mut i32) -> Result<Self, Error> {
+  fn try_parse<'a>(source: &mut Peekable<Chars<'a>>, line: &mut i32) -> Result<Self, Error> {
     use TokenType::*;
     let c = match source.next() {
       Some(v) => v,
@@ -229,6 +229,7 @@ impl Token {
             "false" => False,
             "for" => For,
             "fun" => Fun,
+            "fn" => Fn,
             "if" => If,
             "nil" => Nil,
             "or" => Or,
