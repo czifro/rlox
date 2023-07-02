@@ -1,4 +1,4 @@
-use super::token::Token;
+use super::{token::Token, error::Error};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Expr {
@@ -9,11 +9,11 @@ pub enum Expr {
 }
 
 pub trait Visitor<R> {
-	fn visit(&self, expr: &Expr) -> R;
+	fn visit(&self, expr: &Expr) -> Result<R, Error>;
 }
 
 impl Expr {
-	pub fn accept<R, V>(&self, visitor: &V) -> R
+	pub fn accept<R, V>(&self, visitor: &V) -> Result<R, Error>
 	where
 		V: Visitor<R>,
 	{
@@ -24,23 +24,25 @@ impl Expr {
 pub struct AstPrinter;
 
 impl Visitor<String> for AstPrinter {
-	fn visit(&self, expr: &Expr) -> String {
-		match expr {
+	fn visit(&self, expr: &Expr) -> Result<String, Error> {
+		let expr = match expr {
 			Expr::Binary(left, op, right) => {
-				let left = left.accept(self);
-				let right = right.accept(self);
+				let left = left.accept(self).unwrap();
+				let right = right.accept(self).unwrap();
 				format!("{left} {:} {right}", op.lexeme)
 			}
 			Expr::Grouping(sub_expr) => {
-				let sub_expr = sub_expr.accept(self);
+				let sub_expr = sub_expr.accept(self).unwrap();
 				format!("({sub_expr})")
 			}
 			Expr::Literal(lit) => lit.lexeme.clone(),
 			Expr::Unary(op, sub_expr) => {
-				let sub_expr = sub_expr.accept(self);
+				let sub_expr = sub_expr.accept(self).unwrap();
 				format!("{:}{sub_expr}", op.lexeme)
 			}
-		}
+		};
+
+        Ok(expr)
 	}
 }
 
