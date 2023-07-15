@@ -17,7 +17,7 @@ pub enum Error {
 
 impl Display for Error {
 	fn fmt(&self, fmt: &mut Formatter<'_>) -> Result {
-        let ast_printer = AstPrinter;
+        let mut ast_printer = AstPrinter;
 		match self {
 			Self::UnexpectedToken(line, token) => {
 				write!(fmt, "[line {line}] Error: Unexpected token {token}.")
@@ -33,17 +33,17 @@ impl Display for Error {
 			Self::WrongType(line, expr, actual, expected) => write!(
 				fmt,
 				"[line {line}] Error in expression: {:}:\nExpected type {expected}, found {actual}",
-                expr.accept(&ast_printer).unwrap(),
+                expr.accept(&mut ast_printer).unwrap(),
 			),
 			Self::IncompatibleTypes(line, expr, actual, expected) => write!(
 				fmt,
 				"[line {line}] Incompatible types in expression: {:}:\nExpected type {expected}, found {actual}",
-                expr.accept(&ast_printer).unwrap(),
+                expr.accept(&mut ast_printer).unwrap(),
 			),
 			Self::RuntimeError(line, expr, err) => write!(
 				fmt,
 				"[line {line}] Error in expression: {:}:\n{err}",
-                expr.accept(&ast_printer).unwrap(),
+                expr.accept(&mut ast_printer).unwrap(),
 			),
 			Self::UnexpectedEof(line) => write!(fmt, "[line {line}] Error: Unexpected EOF."),
             Self::Eof => write!(fmt, "Error: EOF"),

@@ -1,7 +1,11 @@
-use super::{error::Error, expression::Expr, token::*};
+use super::{
+	error::Error,
+	expression::{Decl, Expr, Stmt},
+	token::*,
+};
 
 pub struct Parser {
-	cursor: usize,
+	cursor: i32,
 	tokens: Vec<Token>,
 }
 
@@ -10,17 +14,23 @@ impl Parser {
 		Self { cursor: 0, tokens }
 	}
 
-	pub fn parse(&mut self) -> Result<Expr, Error> {
-		if self.is_eof() {
-			return Err(Error::Eof);
+	pub fn parse(&mut self) -> Vec<Result<Decl, Error>> {
+		let mut exprs: Vec<Result<Decl, Error>> = Vec::default();
+
+		loop {
+			if self.is_eof() {
+				break;
+			}
+
+			let expr = self.declaration();
+			if expr.is_err() {
+				self.synchronize();
+			}
+
+			exprs.push(expr);
 		}
 
-		let expr = self.expression();
-		if expr.is_err() {
-			self.synchronize();
-		}
-
-		expr
+		exprs
 	}
 
 	fn synchronize(&mut self) {
@@ -45,6 +55,97 @@ impl Parser {
 				| TokenType::Return => return,
 				_ => self.advance(),
 			};
+		}
+	}
+
+	fn declaration(&mut self) -> Result<Decl, Error> {
+		match self.peek().token_type {
+			TokenType::Var => {
+				self.advance();
+				match self.peek().token_type.clone() {
+					TokenType::Identifier => {
+						let ident = self.advance().clone();
+						match self.peek().token_type.clone() {
+							TokenType::SemiColon => {
+								let res = Ok(Decl::Declaration(ident.to_owned(), None));
+								self.advance();
+								res
+							}
+							TokenType::Equal => {
+								self.advance();
+								let expr = self.expression()?;
+								match self.peek().token_type.clone() {
+									TokenType::SemiColon | TokenType::Eof => {
+										self.advance();
+										Ok(Decl::Declaration(ident.to_owned(), Some(expr)))
+									}
+									token_type => {
+										let res = Err(Error::UnexpectedToken(
+											self.peek().line,
+											format!(
+												"Found {:?}, expected {:?}",
+												token_type,
+												TokenType::Identifier
+											),
+										));
+										res
+									}
+								}
+							}
+							token_type => {
+								let res = Err(Error::UnexpectedToken(
+									self.peek_offset(1).line,
+									format!(
+										"Found {:?}, expected {:?}",
+										token_type,
+										TokenType::Identifier
+									),
+								));
+								self.advance();
+								res
+							}
+						}
+					}
+					token_type => {
+						let res = Err(Error::UnexpectedToken(
+							self.peek().line,
+							format!(
+								"Found {:?}, expected {:?}",
+								token_type,
+								TokenType::Identifier
+							),
+						));
+						res
+					}
+				}
+			}
+			_ => {
+				let stmt = self.statement();
+				if self.peek().token_type == TokenType::SemiColon {
+					self.advance();
+				}
+				stmt.map(Decl::Statement)
+			}
+		}
+	}
+
+	fn statement(&mut self) -> Result<Stmt, Error> {
+		match self.peek().token_type {
+			TokenType::Print => {
+				self.advance();
+				let expr = self.expression()?;
+				if self.peek().token_type == TokenType::SemiColon {
+					self.advance();
+				}
+				Ok(Stmt::Print(expr))
+			}
+			_ => {
+				let expr = self.expression()?;
+				if self.peek().token_type == TokenType::SemiColon {
+					self.advance();
+				}
+				Ok(Stmt::Expression(expr))
+			}
 		}
 	}
 
@@ -143,6 +244,7 @@ impl Parser {
 			| TokenType::Integer
 			| TokenType::Float
 			| TokenType::String => Ok(Expr::Literal(self.advance().clone())),
+			TokenType::Identifier => Ok(Expr::Identifier(self.advance().clone())),
 			TokenType::LeftParen => {
 				self.advance();
 				let expr = self.expression()?;
@@ -172,22 +274,31 @@ impl Parser {
 		}
 	}
 
+	fn peek_offset(&self, offset: i32) -> &Token {
+		self.tokens.get((self.cursor + offset) as usize).unwrap()
+	}
+
 	fn peek(&self) -> &Token {
-		self.tokens.get(self.cursor).unwrap()
+		self.peek_offset(0)
 	}
 
 	fn previous(&self) -> &Token {
-		self.tokens.get(self.cursor - 1).unwrap()
+		self.peek_offset(-1)
 	}
 
 	fn is_eof(&self) -> bool {
 		self.peek().token_type == TokenType::Eof
 	}
 
+	fn shift_cursor(&mut self, offset: i32) {
+		self.cursor = self.cursor + offset;
+	}
+
 	fn advance(&mut self) -> &Token {
 		if !self.is_eof() {
-			self.cursor = self.cursor + 1;
+			self.shift_cursor(1);
 		}
+
 		self.previous()
 	}
 }

@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::fs;
 use std::io;
 
@@ -12,18 +13,27 @@ mod parser;
 mod token;
 mod values;
 
-use expression::{AstPrinter, Expr, Visitor};
+use expression::{Decl, /*AstPrinter,*/ Expr, Stmt, Visitor};
 use parser::Parser;
 use token::{Token, TokenType};
 
-pub struct LoxInterpreter {}
+pub trait Environment {
+	fn define(&mut self, name: String, value: values::LoxValue);
+	fn get(&self, name: String) -> Option<values::LoxValue>;
+}
+
+pub struct LoxInterpreter {
+	environment: BTreeMap<String, values::LoxValue>,
+}
 
 impl LoxInterpreter {
 	pub fn new() -> Self {
-		Self {}
+		Self {
+			environment: BTreeMap::default(),
+		}
 	}
 
-	pub fn launch(&self) -> io::Result<()> {
+	pub fn launch(&mut self) -> io::Result<()> {
 		println!("Welcome to Lox interpreter!");
 		let run_modes = &["Run File", "Run REPL"];
 
@@ -41,7 +51,7 @@ impl LoxInterpreter {
 		}
 	}
 
-	fn run_file(&self) -> io::Result<()> {
+	fn run_file(&mut self) -> io::Result<()> {
 		let paths = fs::read_dir("./examples")?
 			.map(|p| p.unwrap().path().to_string_lossy().to_string())
 			.collect::<Vec<String>>();
@@ -58,7 +68,7 @@ impl LoxInterpreter {
 		self.run(lox_source)
 	}
 
-	fn run_repl(&self) -> io::Result<()> {
+	fn run_repl(&mut self) -> io::Result<()> {
 		println!("Lox REPL (enter `exit` to quit)");
 
 		loop {
@@ -70,7 +80,7 @@ impl LoxInterpreter {
 			match input.trim().to_lowercase().as_str() {
 				"exit" => break,
 				_ => match self.run(input) {
-				    Err(e) => eprintln!("{e}"),
+					Err(e) => eprintln!("{e}"),
 					_ => {}
 				},
 			};
@@ -79,27 +89,18 @@ impl LoxInterpreter {
 		Ok(())
 	}
 
-	fn run(&self, lox_source: String) -> io::Result<()> {
+	fn run(&mut self, lox_source: String) -> io::Result<()> {
 		let tokens = Token::tokenize(lox_source);
-
-		for token in tokens.clone().iter() {
-			match token {
-				Ok(t) => println!("{:?}", t),
-				Err(e) => eprintln!("{e}"),
-			}
-		}
 
 		let errs = tokens
 			.clone()
 			.iter()
 			.filter(|r| r.clone().is_err())
 			.map(|r| r.clone().err().unwrap())
-            .map(|e| format!("{e}"))
-            .fold(String::default(), |l, r| l + r.as_str());
+			.map(|e| format!("{e}"))
+			.fold(String::default(), |l, r| l + r.as_str());
 
-		if errs
-			.len() > 0
-		{
+		if errs.len() > 0 {
 			return Err(io::Error::new(
 				io::ErrorKind::Other,
 				format!("Errors occurred while tokenizing source:\n{errs}"),
@@ -112,29 +113,81 @@ impl LoxInterpreter {
 			.filter(|t| t.token_type != TokenType::Whitespace)
 			.collect::<Vec<Token>>();
 
+		// let printer = AstPrinter;
 		let mut parser = Parser::new(tokens);
-		let printer = AstPrinter;
+		let exprs = parser.parse();
 
-		match parser.parse() {
-			Ok(expr) => {
-				println!("Expression: {:}", printer.visit(&expr).unwrap());
-				match self.visit(&expr) {
-					Ok(output) => println!("Output: {:}", output),
-					Err(e) => eprintln!("{e}"),
-				};
-			}
-			Err(e) => eprintln!("{e}"),
-		};
+		for expr in exprs.iter() {
+			match expr {
+				Ok(expr) => {
+					// println!("Expression: {:}", expr.accept(&printer).unwrap());
+					match expr.accept(self) {
+						Ok(output) => println!("{:}", output),
+						Err(e) => eprintln!("{e}"),
+					};
+				}
+				Err(e) => eprintln!("{e}"),
+			};
+		}
 
 		Ok(())
 	}
 }
 
-impl Visitor<values::LoxValue> for LoxInterpreter {
-	fn visit(&self, expr: &Expr) -> Result<values::LoxValue, error::Error> {
+impl Environment for LoxInterpreter {
+	fn define(&mut self, name: String, value: values::LoxValue) {
+		self.environment.insert(name, value);
+	}
+
+	fn get(&self, name: String) -> Option<values::LoxValue> {
+		self.environment.get(&name).map(Clone::clone)
+	}
+}
+
+impl Visitor<values::LoxValue, Decl> for LoxInterpreter {
+	fn visit(&mut self, decl: &Decl) -> Result<values::LoxValue, error::Error> {
+		use values::LoxValue;
+		match decl {
+			Decl::Declaration(tok, expr) => {
+				let value = match expr {
+					Some(expr) => expr.accept(self)?,
+					None => LoxValue::Nil,
+				};
+				self.define(tok.lexeme.to_owned(), value.clone());
+				Ok(value)
+			}
+			Decl::Statement(expr) => expr.accept(self),
+		}
+	}
+}
+
+impl Visitor<values::LoxValue, Stmt> for LoxInterpreter {
+	fn visit(&mut self, stmt: &Stmt) -> Result<values::LoxValue, error::Error> {
+		use values::LoxValue;
+		match stmt {
+			Stmt::Expression(e) => e.accept(self),
+			Stmt::Print(e) => {
+				let e = e.accept(self)?;
+				println!("{e}");
+				Ok(LoxValue::Nil)
+			}
+		}
+	}
+}
+
+impl Visitor<values::LoxValue, Expr> for LoxInterpreter {
+	fn visit(&mut self, expr: &Expr) -> Result<values::LoxValue, error::Error> {
 		use values::{LoxType, LoxValue};
 		match expr {
 			Expr::Literal(tok) => Ok(LoxValue::from(tok.clone())),
+			Expr::Identifier(tok) => match self.get(tok.lexeme.clone()) {
+				Some(v) => Ok(v),
+				_ => Err(error::Error::RuntimeError(
+					tok.line,
+					expr.to_owned(),
+					format!("Undefined variable: {:}", tok.lexeme),
+				)),
+			},
 			Expr::Grouping(sub_expr) => sub_expr.accept(self),
 			Expr::Unary(op, sub_expr) => match op.token_type.clone() {
 				TokenType::Minus => {
@@ -223,19 +276,19 @@ impl Visitor<values::LoxValue> for LoxInterpreter {
 					}
 					TokenType::Star => match (&left, &right) {
 						(LoxValue::Number(l), LoxValue::Number(r)) => Ok(LoxValue::Number(l * r)),
-                        (LoxValue::Nil, LoxValue::Nil) => Err(error::Error::IncompatibleTypes(
+						(LoxValue::Nil, LoxValue::Nil) => Err(error::Error::IncompatibleTypes(
 							op.line,
 							expr.to_owned(),
 							left.lox_type(),
-                            LoxType::Number,
+							LoxType::Number,
 						)),
-                        (_, LoxValue::Number(_)) => Err(error::Error::IncompatibleTypes(
+						(_, LoxValue::Number(_)) => Err(error::Error::IncompatibleTypes(
 							op.line,
 							expr.to_owned(),
 							right.lox_type(),
 							left.lox_type(),
 						)),
-                        (LoxValue::Number(_), _) => Err(error::Error::IncompatibleTypes(
+						(LoxValue::Number(_), _) => Err(error::Error::IncompatibleTypes(
 							op.line,
 							expr.to_owned(),
 							left.lox_type(),
@@ -245,7 +298,7 @@ impl Visitor<values::LoxValue> for LoxInterpreter {
 							op.line,
 							expr.to_owned(),
 							left.lox_type(),
-                            LoxType::Number
+							LoxType::Number,
 						)),
 					},
 					TokenType::Slash => match (&left, &right) {
@@ -259,19 +312,19 @@ impl Visitor<values::LoxValue> for LoxInterpreter {
 							}
 							Ok(LoxValue::Number(l / r))
 						}
-                        (LoxValue::Nil, LoxValue::Nil) => Err(error::Error::IncompatibleTypes(
+						(LoxValue::Nil, LoxValue::Nil) => Err(error::Error::IncompatibleTypes(
 							op.line,
 							expr.to_owned(),
 							left.lox_type(),
-                            LoxType::Number,
+							LoxType::Number,
 						)),
-                        (_, LoxValue::Number(_)) => Err(error::Error::IncompatibleTypes(
+						(_, LoxValue::Number(_)) => Err(error::Error::IncompatibleTypes(
 							op.line,
 							expr.to_owned(),
 							right.lox_type(),
 							left.lox_type(),
 						)),
-                        (LoxValue::Number(_), _) => Err(error::Error::IncompatibleTypes(
+						(LoxValue::Number(_), _) => Err(error::Error::IncompatibleTypes(
 							op.line,
 							expr.to_owned(),
 							left.lox_type(),
@@ -281,24 +334,24 @@ impl Visitor<values::LoxValue> for LoxInterpreter {
 							op.line,
 							expr.to_owned(),
 							left.lox_type(),
-                            LoxType::Number
+							LoxType::Number,
 						)),
 					},
 					TokenType::Minus => match (&left, &right) {
 						(LoxValue::Number(l), LoxValue::Number(r)) => Ok(LoxValue::Number(l - r)),
-                        (LoxValue::Nil, LoxValue::Nil) => Err(error::Error::IncompatibleTypes(
+						(LoxValue::Nil, LoxValue::Nil) => Err(error::Error::IncompatibleTypes(
 							op.line,
 							expr.to_owned(),
 							left.lox_type(),
-                            LoxType::Number,
+							LoxType::Number,
 						)),
-                        (_, LoxValue::Number(_)) => Err(error::Error::IncompatibleTypes(
+						(_, LoxValue::Number(_)) => Err(error::Error::IncompatibleTypes(
 							op.line,
 							expr.to_owned(),
 							right.lox_type(),
 							left.lox_type(),
 						)),
-                        (LoxValue::Number(_), _) => Err(error::Error::IncompatibleTypes(
+						(LoxValue::Number(_), _) => Err(error::Error::IncompatibleTypes(
 							op.line,
 							expr.to_owned(),
 							left.lox_type(),
@@ -308,7 +361,7 @@ impl Visitor<values::LoxValue> for LoxInterpreter {
 							op.line,
 							expr.to_owned(),
 							left.lox_type(),
-                            LoxType::Number
+							LoxType::Number,
 						)),
 					},
 					TokenType::Plus => match (&left, &right) {
@@ -316,31 +369,31 @@ impl Visitor<values::LoxValue> for LoxInterpreter {
 						(LoxValue::String(l), LoxValue::String(r)) => {
 							Ok(LoxValue::String(l.to_owned() + r.as_str()))
 						}
-                        (LoxValue::Nil, LoxValue::Nil) => Err(error::Error::IncompatibleTypes(
+						(LoxValue::Nil, LoxValue::Nil) => Err(error::Error::IncompatibleTypes(
 							op.line,
 							expr.to_owned(),
 							left.lox_type(),
-                            LoxType::Number,
+							LoxType::Number,
 						)),
-                        (LoxValue::Number(_), _) => Err(error::Error::IncompatibleTypes(
-							op.line,
-							expr.to_owned(),
-							left.lox_type(),
-							right.lox_type(),
-						)),
-                        (_, LoxValue::Number(_)) => Err(error::Error::IncompatibleTypes(
-							op.line,
-							expr.to_owned(),
-							right.lox_type(),
-							left.lox_type(),
-						)),
-                        (LoxValue::String(_), _) => Err(error::Error::IncompatibleTypes(
+						(LoxValue::Number(_), _) => Err(error::Error::IncompatibleTypes(
 							op.line,
 							expr.to_owned(),
 							left.lox_type(),
 							right.lox_type(),
 						)),
-                        (_, LoxValue::String(_)) => Err(error::Error::IncompatibleTypes(
+						(_, LoxValue::Number(_)) => Err(error::Error::IncompatibleTypes(
+							op.line,
+							expr.to_owned(),
+							right.lox_type(),
+							left.lox_type(),
+						)),
+						(LoxValue::String(_), _) => Err(error::Error::IncompatibleTypes(
+							op.line,
+							expr.to_owned(),
+							left.lox_type(),
+							right.lox_type(),
+						)),
+						(_, LoxValue::String(_)) => Err(error::Error::IncompatibleTypes(
 							op.line,
 							expr.to_owned(),
 							right.lox_type(),

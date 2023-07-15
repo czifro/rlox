@@ -334,7 +334,7 @@ impl Token {
 												line: *line,
 											});
 									}
-									println!("Parsing number: {:}.", literal.clone());
+									// println!("Parsing number: {:}.", literal.clone());
 									return literal
 										.parse::<i32>()
 										.map_err(|e| Error::UnparsableNumber(*line, e.to_string()))
@@ -359,7 +359,7 @@ impl Token {
 										line: *line,
 									});
 							}
-							println!("Parsing number: {:}.", literal.clone());
+							// println!("Parsing number: {:}.", literal.clone());
 							return literal
 								.parse::<i32>()
 								.map_err(|e| Error::UnparsableNumber(*line, e.to_string()))

@@ -4,7 +4,7 @@ mod prelude;
 use interpreter::*;
 
 fn main() -> std::io::Result<()> {
-  let lox = LoxInterpreter::new();
+  let mut lox = LoxInterpreter::new();
   
   lox.launch()
 }
