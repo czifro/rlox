@@ -13,10 +13,22 @@ pub enum LoxValue {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum LoxType {
-    Nil,
+    Nil = 0,
     Number,
     Bool,
     String,
+}
+
+impl From<LoxType> for String {
+	fn from(value: LoxType) -> Self {
+		use LoxType::*;
+	  match value {
+			Nil => "nil".to_string(),
+			Number => "number".to_string(),
+			Bool => "bool".to_string(),
+			String => "string".to_string(),
+		}
+	}
 }
 
 impl LoxValue {
@@ -29,7 +41,7 @@ impl LoxValue {
         }
     }
 
-    pub fn is_same_type(&self, other: &Self) -> bool {
+    pub fn is_same_type_as(&self, other: &Self) -> bool {
         self.lox_type() == other.lox_type()
     }
 

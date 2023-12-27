@@ -1,6 +1,6 @@
 use super::{
 	error::Error,
-	expression::{Decl, Expr, Stmt},
+	expression::{Decl, Expr, Stmt, AstPrinter},
 	token::*,
 };
 
@@ -139,6 +139,24 @@ impl Parser {
 				}
 				Ok(Stmt::Print(expr))
 			}
+			TokenType::LeftBrace => {
+				self.advance();
+				match self.peek().token_type {
+					TokenType::RightBrace => Ok(Stmt::Block(Vec::default())),
+					_ => {
+						let mut decls = vec![];
+						while self.peek().token_type != TokenType::RightBrace {
+							if self.is_eof() {
+								return Err(Error::UnexpectedEof(self.peek().line));
+							}
+							let decl = self.declaration()?;
+							decls.push(decl);
+						}
+						self.advance();
+						Ok(Stmt::Block(decls))
+					}
+				}
+			}
 			_ => {
 				let expr = self.expression()?;
 				if self.peek().token_type == TokenType::SemiColon {
@@ -150,7 +168,32 @@ impl Parser {
 	}
 
 	fn expression(&mut self) -> Result<Expr, Error> {
-		self.equality()
+		self.assignment()
+	}
+
+	fn assignment(&mut self) -> Result<Expr, Error> {
+		let mut expr = self.equality()?;
+
+		if self.advance().token_type == TokenType::Equal {
+			let prev_cursor = self.cursor - 1;
+			let value = self.assignment()?;
+
+			match expr {
+				Expr::Identifier(tok) => {
+					expr = Expr::Assign(tok, Box::from(value))
+				},
+				_ => {
+					let tok = self.peek_offset(prev_cursor - self.cursor); // Peeking back to equals token
+					let mut printer = AstPrinter::default();
+					let expr = expr.accept(&mut printer).unwrap();
+					return Err(Error::InvalidAssignmentTarget(tok.line, expr));
+				},
+			}
+		} else {
+			self.shift_cursor(-1);
+		}
+
+		Ok(expr)
 	}
 
 	fn equality(&mut self) -> Result<Expr, Error> {

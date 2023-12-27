@@ -1,8 +1,13 @@
 use super::{error::Error, token::Token};
 
+mod binary;
+
+pub use binary::*;
+
 generate_ast! [
 		{
 				Expr {
+	          Assign(Token, Box<Expr>),
 						Binary(Box<Expr>, Token, Box<Expr>),
 						Grouping(Box<Expr>),
 						Literal(Token),
@@ -14,6 +19,7 @@ generate_ast! [
 				Stmt {
 						Expression(Expr),
 						Print(Expr),
+	          Block(Vec<Decl>),
 				}
 		},
 		{
@@ -28,6 +34,7 @@ pub trait Visitor<R, E> {
 	fn visit(&mut self, expr: &E) -> Result<R, Error>;
 }
 
+#[derive(Default)]
 pub struct AstPrinter;
 
 impl Visitor<String, Decl> for AstPrinter {
@@ -57,7 +64,20 @@ impl Visitor<String, Stmt> for AstPrinter {
 			Stmt::Print(e) => {
 				let e = e.accept(self)?;
 				Ok(format!("print {e}"))
-			}
+			},
+			Stmt::Block(decls) => {
+				let block = decls.iter()
+				  .map(|decl| {
+						let decl = decl.accept(self).unwrap();
+						let decl = decl.lines().map(|l| format!("  {l}"))
+						  .collect::<Vec<String>>();
+						let decl = decl.join("\n");
+						decl
+	        })
+				  .collect::<Vec<String>>()
+				  .join("\n");
+				Ok(format!("{{\n{block}\n}}"))
+			},
 		}
 	}
 }
@@ -65,10 +85,16 @@ impl Visitor<String, Stmt> for AstPrinter {
 impl Visitor<String, Expr> for AstPrinter {
 	fn visit(&mut self, expr: &Expr) -> Result<String, Error> {
 		let expr = match expr {
+			Expr::Assign(ident, sub_expr) => {
+				let ident = &ident.lexeme;
+				let sub_expr = sub_expr.accept(self).unwrap();
+				format!("{ident} = {sub_expr}")
+			}
 			Expr::Binary(left, op, right) => {
+				let op = &op.lexeme;
 				let left = left.accept(self).unwrap();
 				let right = right.accept(self).unwrap();
-				format!("{left} {:} {right}", op.lexeme)
+				format!("{left} {op} {right}")
 			}
 			Expr::Grouping(sub_expr) => {
 				let sub_expr = sub_expr.accept(self).unwrap();
@@ -76,8 +102,9 @@ impl Visitor<String, Expr> for AstPrinter {
 			}
 			Expr::Literal(lit) => lit.lexeme.clone(),
 			Expr::Unary(op, sub_expr) => {
+				let op = &op.lexeme;
 				let sub_expr = sub_expr.accept(self).unwrap();
-				format!("{:}{sub_expr}", op.lexeme)
+				format!("{op}{sub_expr}")
 			}
 			Expr::Identifier(ident) => ident.lexeme.clone(),
 		};

@@ -81,14 +81,12 @@ impl std::cmp::PartialEq for Token {
 
 impl Token {
 	pub fn tokenize(source: String) -> Vec<Result<Self, Error>> {
-		// println!("Tokenizing source");
 		let mut tokens: Vec<Result<Token, Error>> = Vec::new();
 		let mut stream = source.chars().peekable();
 		let mut line = 1;
 
 		loop {
 			if stream.clone().count() <= 0 {
-				// println!("End of token stream");
 				tokens.push(Self::try_parse(&mut stream, &mut line));
 				break;
 			}
@@ -334,7 +332,6 @@ impl Token {
 												line: *line,
 											});
 									}
-									// println!("Parsing number: {:}.", literal.clone());
 									return literal
 										.parse::<i32>()
 										.map_err(|e| Error::UnparsableNumber(*line, e.to_string()))
@@ -359,7 +356,6 @@ impl Token {
 										line: *line,
 									});
 							}
-							// println!("Parsing number: {:}.", literal.clone());
 							return literal
 								.parse::<i32>()
 								.map_err(|e| Error::UnparsableNumber(*line, e.to_string()))

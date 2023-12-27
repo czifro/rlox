@@ -1,0 +1,7 @@
+true + true;
+5 + 5;
+print 5 + 5;
+var myVar;
+print myVar;
+print nil == nil;
+print nil != nil;
