@@ -18,6 +18,7 @@ generate_ast! [
 		{
 				Stmt {
 						Expression(Expr),
+	          If(Token, Expr, Box<Stmt>, Option<Box<Stmt>>),
 						Print(Expr),
 	          Block(Vec<Decl>),
 				}
@@ -61,6 +62,15 @@ impl Visitor<String, Stmt> for AstPrinter {
 	fn visit(&mut self, expr: &Stmt) -> Result<String, Error> {
 		match expr {
 			Stmt::Expression(e) => e.accept(self),
+			Stmt::If(_, ie, s, ee) => {
+				let ie = ie.accept(self)?;
+				let s = s.accept(self)?;
+				let ee = match ee {
+					Some(ee) => format!("\nelse {:}", ee.accept(self)?),
+					_ => String::default(),
+				};
+				Ok(format!("if ({ie}) {s}{ee}"))
+			},
 			Stmt::Print(e) => {
 				let e = e.accept(self)?;
 				Ok(format!("print {e}"))

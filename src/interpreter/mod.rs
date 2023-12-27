@@ -159,7 +159,9 @@ impl Visitor<values::LoxValue, Decl> for LoxInterpreter {
 					Some(expr) => expr.accept(self)?,
 					None => LoxValue::Nil,
 				};
-				self.environment.define(tok.lexeme.to_owned(), value.clone());
+				self
+					.environment
+					.define(tok.lexeme.to_owned(), value.clone());
 				Ok(value)
 			}
 			Decl::Statement(expr) => expr.accept(self),
@@ -169,9 +171,27 @@ impl Visitor<values::LoxValue, Decl> for LoxInterpreter {
 
 impl Visitor<values::LoxValue, Stmt> for LoxInterpreter {
 	fn visit(&mut self, stmt: &Stmt) -> Result<values::LoxValue, error::Error> {
-		use values::LoxValue;
+		use values::{LoxType, LoxValue};
 		match stmt {
 			Stmt::Expression(e) => e.accept(self),
+			Stmt::If(tok, ie, s, ee) => {
+				let cond = ie.accept(self)?;
+				if cond.lox_type() != LoxType::Bool {
+					return Err(error::Error::RuntimeError(
+						tok.line,
+						ie.to_owned(),
+						"Expected condition to resolve to boolean value".to_string(),
+					));
+				}
+				if cond == LoxValue::Bool(true) {
+					return s.accept(self);
+				}
+				
+				match ee {
+					None => Ok(LoxValue::Nil),
+					Some(ee) => ee.accept(self)
+				}
+			}
 			Stmt::Print(e) => {
 				let e = e.accept(self)?;
 				println!("{e}");
@@ -213,9 +233,13 @@ impl Visitor<values::LoxValue, Expr> for LoxInterpreter {
 			},
 			Expr::Assign(ident, sub_expr) => {
 				let value = sub_expr.accept(self)?;
-				let _ = self.environment
+				let _ = self
+					.environment
 					.update(ident.lexeme.to_owned(), value)
-					.ok_or(error::Error::UndefinedVariable(ident.line, ident.lexeme.clone()))?;
+					.ok_or(error::Error::UndefinedVariable(
+						ident.line,
+						ident.lexeme.clone(),
+					))?;
 				Ok(LoxValue::Nil)
 			}
 			Expr::Grouping(sub_expr) => sub_expr.accept(self),

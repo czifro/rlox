@@ -1,6 +1,6 @@
 use super::{
 	error::Error,
-	expression::{Decl, Expr, Stmt, AstPrinter},
+	expression::{AstPrinter, Decl, Expr, Stmt},
 	token::*,
 };
 
@@ -157,6 +157,40 @@ impl Parser {
 					}
 				}
 			}
+			TokenType::If => {
+				let tok = self.peek().clone();
+				self.advance();
+				if self.peek().token_type != TokenType::LeftParen {
+					return Err(Error::WrongTokenType(
+						self.peek().line,
+						self.peek().lexeme.clone(),
+						"(".to_string(),
+					));
+				}
+				self.advance();
+				let expr = self.expression()?;
+				if self.peek().token_type != TokenType::RightParen {
+					return Err(Error::WrongTokenType(
+						self.peek().line,
+						self.peek().lexeme.clone(),
+						")".to_string(),
+					));
+				}
+				self.advance();
+				let stmt = self.statement()?;
+				if self.peek().token_type != TokenType::Else {
+					return Ok(Stmt::If(tok, expr, Box::from(stmt), None));
+				}
+				self.advance();
+				let else_stmt = self.statement()?;
+
+				Ok(Stmt::If(
+					tok,
+					expr,
+					Box::from(stmt),
+					Some(Box::from(else_stmt)),
+				))
+			}
 			_ => {
 				let expr = self.expression()?;
 				if self.peek().token_type == TokenType::SemiColon {
@@ -179,15 +213,13 @@ impl Parser {
 			let value = self.assignment()?;
 
 			match expr {
-				Expr::Identifier(tok) => {
-					expr = Expr::Assign(tok, Box::from(value))
-				},
+				Expr::Identifier(tok) => expr = Expr::Assign(tok, Box::from(value)),
 				_ => {
 					let tok = self.peek_offset(prev_cursor - self.cursor); // Peeking back to equals token
 					let mut printer = AstPrinter::default();
 					let expr = expr.accept(&mut printer).unwrap();
 					return Err(Error::InvalidAssignmentTarget(tok.line, expr));
-				},
+				}
 			}
 		} else {
 			self.shift_cursor(-1);
