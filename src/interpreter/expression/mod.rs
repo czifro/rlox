@@ -7,7 +7,7 @@ pub use binary::*;
 generate_ast! [
 		{
 				Expr {
-	          Assign(Token, Box<Expr>),
+						Assign(Token, Box<Expr>),
 						Binary(Box<Expr>, Token, Box<Expr>),
 						Grouping(Box<Expr>),
 						Literal(Token),
@@ -18,9 +18,9 @@ generate_ast! [
 		{
 				Stmt {
 						Expression(Expr),
-	          If(Token, Expr, Box<Stmt>, Option<Box<Stmt>>),
+						If(Token, Expr, Box<Stmt>, Option<Box<Stmt>>),
 						Print(Expr),
-	          Block(Vec<Decl>),
+						Block(Vec<Decl>),
 				}
 		},
 		{
@@ -70,24 +70,27 @@ impl Visitor<String, Stmt> for AstPrinter {
 					_ => String::default(),
 				};
 				Ok(format!("if ({ie}) {s}{ee}"))
-			},
+			}
 			Stmt::Print(e) => {
 				let e = e.accept(self)?;
 				Ok(format!("print {e}"))
-			},
+			}
 			Stmt::Block(decls) => {
-				let block = decls.iter()
-				  .map(|decl| {
+				let block = decls
+					.iter()
+					.map(|decl| {
 						let decl = decl.accept(self).unwrap();
-						let decl = decl.lines().map(|l| format!("  {l}"))
-						  .collect::<Vec<String>>();
+						let decl = decl
+							.lines()
+							.map(|l| format!("  {l}"))
+							.collect::<Vec<String>>();
 						let decl = decl.join("\n");
 						decl
-	        })
-				  .collect::<Vec<String>>()
-				  .join("\n");
+					})
+					.collect::<Vec<String>>()
+					.join("\n");
 				Ok(format!("{{\n{block}\n}}"))
-			},
+			}
 		}
 	}
 }

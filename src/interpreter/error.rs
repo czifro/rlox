@@ -1,6 +1,6 @@
 use std::fmt::{Display, Formatter, Result};
 
-use super::{expression::*, values::LoxType, token::Token};
+use super::{expression::*, token::Token, values::LoxType};
 
 #[derive(Debug, Clone)]
 pub enum Error {
@@ -14,8 +14,7 @@ pub enum Error {
 	IncompatibleTypes(i32, Expr, LoxType, LoxType),
 	InoperableTypes(Token, Expr, Vec<LoxType>, LoxType, LoxType),
 	RuntimeError(i32, Expr, String),
-	UndefinedVariable(i32, String)
-	// Eof,
+	UndefinedVariable(i32, String), // Eof,
 }
 
 impl Display for Error {
@@ -67,3 +66,9 @@ impl Display for Error {
 }
 
 impl std::error::Error for Error {}
+
+impl Error {
+	pub fn to_result<V>(self) -> std::result::Result<V, Self> {
+		Err(self)
+	}
+}

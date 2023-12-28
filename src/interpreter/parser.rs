@@ -34,168 +34,129 @@ impl Parser {
 	}
 
 	fn synchronize(&mut self) {
+		use TokenType::*;
 		self.advance();
 
 		loop {
 			if self.is_eof() {
 				return;
 			}
-			if self.previous().token_type == TokenType::SemiColon {
+			if self.previous().token_type == SemiColon {
 				return;
 			}
-			match self.peek().token_type {
-				TokenType::Class
-				| TokenType::Fun
-				| TokenType::Fn
-				| TokenType::Var
-				| TokenType::For
-				| TokenType::If
-				| TokenType::While
-				| TokenType::Print
-				| TokenType::Return => return,
-				_ => self.advance(),
+			let Some(_) = self.advance_if(|t| {
+				![Class, Fun, Fn, Var, For, If, While, Print, Return]
+					.contains(&t.token_type)
+			}) else {
+				break;
 			};
 		}
 	}
-
 	fn declaration(&mut self) -> Result<Decl, Error> {
-		match self.peek().token_type {
-			TokenType::Var => {
-				self.advance();
-				match self.peek().token_type.clone() {
-					TokenType::Identifier => {
-						let ident = self.advance().clone();
-						match self.peek().token_type.clone() {
-							TokenType::SemiColon => {
-								let res = Ok(Decl::Declaration(ident.to_owned(), None));
-								self.advance();
-								res
-							}
-							TokenType::Equal => {
-								self.advance();
-								let expr = self.expression()?;
-								match self.peek().token_type.clone() {
-									TokenType::SemiColon | TokenType::Eof => {
-										self.advance();
-										Ok(Decl::Declaration(ident.to_owned(), Some(expr)))
-									}
-									token_type => {
-										let res = Err(Error::UnexpectedToken(
-											self.peek().line,
-											format!(
-												"Found {:?}, expected {:?}",
-												token_type,
-												TokenType::Identifier
-											),
-										));
-										res
-									}
-								}
-							}
-							token_type => {
-								let res = Err(Error::UnexpectedToken(
-									self.peek_offset(1).line,
-									format!(
-										"Found {:?}, expected {:?}",
-										token_type,
-										TokenType::Identifier
-									),
-								));
-								self.advance();
-								res
-							}
-						}
-					}
-					token_type => {
-						let res = Err(Error::UnexpectedToken(
-							self.peek().line,
-							format!(
-								"Found {:?}, expected {:?}",
-								token_type,
-								TokenType::Identifier
-							),
-						));
-						res
-					}
-				}
-			}
-			_ => {
-				let stmt = self.statement();
-				if self.peek().token_type == TokenType::SemiColon {
-					self.advance();
-				}
-				stmt.map(Decl::Statement)
-			}
-		}
+		use TokenType::*;
+		let Some(_) = self.advance_if(|t| t.token_type == Var)
+		else {
+			let stmt = self.statement();
+			self.advance_if(|t| t.token_type == SemiColon);
+			return stmt.map(Decl::Statement);
+		};
+
+		let Some(ident) =
+			self.advance_if(|t| t.token_type == Identifier)
+		else {
+			let tok = self.peek();
+			return Error::UnexpectedToken(
+				tok.line,
+				format!(
+					"Found {:?}, expected {:?}",
+					tok.token_type, Identifier
+				),
+			)
+			.to_result();
+		};
+		let ident = ident.clone();
+
+		let Some(_) = self.advance_if(|t| t.token_type == Equal)
+		else {
+			self.advance_if(|t| t.token_type == SemiColon);
+			return Ok(Decl::Declaration(ident, None));
+		};
+
+		let expr = self.expression()?;
+		self.advance_if(|t| t.token_type == SemiColon);
+
+		Ok(Decl::Declaration(ident, Some(expr)))
 	}
 
 	fn statement(&mut self) -> Result<Stmt, Error> {
-		match self.peek().token_type {
-			TokenType::Print => {
-				self.advance();
-				let expr = self.expression()?;
-				if self.peek().token_type == TokenType::SemiColon {
-					self.advance();
-				}
-				Ok(Stmt::Print(expr))
-			}
-			TokenType::LeftBrace => {
-				self.advance();
-				match self.peek().token_type {
-					TokenType::RightBrace => Ok(Stmt::Block(Vec::default())),
-					_ => {
-						let mut decls = vec![];
-						while self.peek().token_type != TokenType::RightBrace {
-							if self.is_eof() {
-								return Err(Error::UnexpectedEof(self.peek().line));
-							}
-							let decl = self.declaration()?;
-							decls.push(decl);
-						}
-						self.advance();
-						Ok(Stmt::Block(decls))
+		use TokenType::*;
+		match self.advance_if(|t| {
+			[Print, LeftBrace, If].contains(&t.token_type)
+		}) {
+			Some(tok) if tok.token_type == LeftBrace => {
+				let mut decls = vec![];
+				while self
+					.advance_if(|t| t.token_type == RightBrace)
+					.is_none()
+				{
+					if self.is_eof() {
+						return Err(Error::UnexpectedEof(self.peek().line));
 					}
+					let decl = self.declaration()?;
+					decls.push(decl);
 				}
+				Ok(Stmt::Block(decls))
 			}
-			TokenType::If => {
-				let tok = self.peek().clone();
-				self.advance();
-				if self.peek().token_type != TokenType::LeftParen {
-					return Err(Error::WrongTokenType(
+			Some(tok) if tok.token_type == If => {
+				let tok = tok.clone();
+				let Some(_) =
+					self.advance_if(|t| t.token_type == LeftParen)
+				else {
+					return Error::WrongTokenType(
 						self.peek().line,
 						self.peek().lexeme.clone(),
 						"(".to_string(),
-					));
-				}
-				self.advance();
+					)
+					.to_result();
+				};
 				let expr = self.expression()?;
-				if self.peek().token_type != TokenType::RightParen {
-					return Err(Error::WrongTokenType(
+				let Some(_) =
+					self.advance_if(|t| t.token_type == RightParen)
+				else {
+					return Error::WrongTokenType(
 						self.peek().line,
 						self.peek().lexeme.clone(),
 						")".to_string(),
-					));
-				}
-				self.advance();
+					)
+					.to_result();
+				};
 				let stmt = self.statement()?;
-				if self.peek().token_type != TokenType::Else {
-					return Ok(Stmt::If(tok, expr, Box::from(stmt), None));
-				}
-				self.advance();
+				let Some(_) = self.advance_if(|t| t.token_type == Else)
+				else {
+					return Ok(Stmt::If(
+						tok.clone(),
+						expr,
+						Box::from(stmt),
+						None,
+					));
+				};
 				let else_stmt = self.statement()?;
 
 				Ok(Stmt::If(
-					tok,
+					tok.clone(),
 					expr,
 					Box::from(stmt),
 					Some(Box::from(else_stmt)),
 				))
 			}
+			Some(tok) if tok.token_type == Print => {
+				let expr = self.expression()?;
+				self.advance_if(|t| t.token_type == SemiColon);
+				Ok(Stmt::Print(expr))
+			}
 			_ => {
 				let expr = self.expression()?;
-				if self.peek().token_type == TokenType::SemiColon {
-					self.advance();
-				}
+				self.advance_if(|t| t.token_type == SemiColon);
 				Ok(Stmt::Expression(expr))
 			}
 		}
@@ -213,12 +174,15 @@ impl Parser {
 			let value = self.assignment()?;
 
 			match expr {
-				Expr::Identifier(tok) => expr = Expr::Assign(tok, Box::from(value)),
+				Expr::Identifier(tok) => {
+					expr = Expr::Assign(tok, Box::from(value))
+				}
 				_ => {
 					let tok = self.peek_offset(prev_cursor - self.cursor); // Peeking back to equals token
 					let mut printer = AstPrinter::default();
 					let expr = expr.accept(&mut printer).unwrap();
-					return Err(Error::InvalidAssignmentTarget(tok.line, expr));
+					return Error::InvalidAssignmentTarget(tok.line, expr)
+						.to_result();
 				}
 			}
 		} else {
@@ -229,79 +193,79 @@ impl Parser {
 	}
 
 	fn equality(&mut self) -> Result<Expr, Error> {
+		use TokenType::*;
 		let mut expr = self.comparison()?;
 
-		loop {
-			match self.peek().token_type {
-				TokenType::BangEqual | TokenType::EqualEqual => {
-					let token = self.advance().clone();
-					let right = self.comparison()?;
-					expr = Expr::Binary(Box::from(expr), token, Box::from(right))
-				}
-				_ => break,
-			};
+		while let Some(tok) = self.advance_if(|t| {
+			[BangEqual, EqualEqual].contains(&t.token_type)
+		}) {
+			let tok = tok.clone();
+			let right = self.comparison()?;
+			expr =
+				Expr::Binary(Box::from(expr), tok, Box::from(right));
 		}
 
 		Ok(expr)
 	}
 
 	fn comparison(&mut self) -> Result<Expr, Error> {
+		use TokenType::*;
 		let mut expr = self.term()?;
 
-		loop {
-			match self.peek().token_type {
-				TokenType::Greater | TokenType::GreaterEqual | TokenType::Less | TokenType::LessEqual => {
-					let token = self.advance().clone();
-					let right = self.term()?;
-					expr = Expr::Binary(Box::from(expr), token.clone(), Box::from(right))
-				}
-				_ => break,
-			};
+		while let Some(tok) = self.advance_if(|t| {
+			[Greater, GreaterEqual, Less, LessEqual]
+				.contains(&t.token_type)
+		}) {
+			let tok = tok.clone();
+			let right = self.term()?;
+			expr =
+				Expr::Binary(Box::from(expr), tok, Box::from(right));
 		}
 
 		Ok(expr)
 	}
 
 	fn term(&mut self) -> Result<Expr, Error> {
+		use TokenType::*;
 		let mut expr = self.factor()?;
 
-		loop {
-			match self.peek().token_type {
-				TokenType::Plus | TokenType::Minus => {
-					let token = self.advance().clone();
-					let right = self.factor()?;
-					expr = Expr::Binary(Box::from(expr), token, Box::from(right))
-				}
-				_ => break,
-			};
+		while let Some(tok) =
+			self.advance_if(|t| [Plus, Minus].contains(&t.token_type))
+		{
+			let tok = tok.clone();
+			let right = self.factor()?;
+			expr =
+				Expr::Binary(Box::from(expr), tok, Box::from(right));
 		}
 
 		Ok(expr)
 	}
 
 	fn factor(&mut self) -> Result<Expr, Error> {
+		use TokenType::*;
 		let mut expr = self.unary()?;
 
-		loop {
-			match self.peek().token_type {
-				TokenType::Star | TokenType::Slash => {
-					let token = self.advance().clone();
-					let right = self.unary()?;
-					expr = Expr::Binary(Box::from(expr), token, Box::from(right))
-				}
-				_ => break,
-			};
+		while let Some(tok) =
+			self.advance_if(|t| [Star, Slash].contains(&t.token_type))
+		{
+			let tok = tok.clone();
+			let right = self.unary()?;
+			expr =
+				Expr::Binary(Box::from(expr), tok, Box::from(right));
 		}
 
 		Ok(expr)
 	}
 
 	fn unary(&mut self) -> Result<Expr, Error> {
-		match self.peek().token_type {
-			TokenType::Minus | TokenType::Bang => {
-				let token = self.advance().clone();
+		use TokenType::*;
+		match self
+			.advance_if(|t| [Minus, Bang].contains(&t.token_type))
+		{
+			Some(tok) => {
+				let tok = tok.clone();
 				let right = self.unary()?;
-				Ok(Expr::Unary(token, Box::from(right)))
+				Ok(Expr::Unary(tok, Box::from(right)))
 			}
 			_ => self.primary(),
 		}
@@ -309,7 +273,7 @@ impl Parser {
 
 	fn primary(&mut self) -> Result<Expr, Error> {
 		if self.is_eof() {
-			return Err(Error::UnexpectedEof(self.peek().line));
+			return Error::UnexpectedEof(self.peek().line).to_result();
 		}
 
 		match self.peek().token_type {
@@ -318,8 +282,12 @@ impl Parser {
 			| TokenType::Nil
 			| TokenType::Integer
 			| TokenType::Float
-			| TokenType::String => Ok(Expr::Literal(self.advance().clone())),
-			TokenType::Identifier => Ok(Expr::Identifier(self.advance().clone())),
+			| TokenType::String => {
+				Ok(Expr::Literal(self.advance().clone()))
+			}
+			TokenType::Identifier => {
+				Ok(Expr::Identifier(self.advance().clone()))
+			}
 			TokenType::LeftParen => {
 				self.advance();
 				let expr = self.expression()?;
@@ -330,21 +298,23 @@ impl Parser {
 					}
 					_ => {
 						let token = self.peek();
-						Err(Error::WrongTokenType(
+						Error::WrongTokenType(
 							token.clone().line,
 							token.clone().lexeme,
 							")".to_string(),
-						))
+						)
+						.to_result()
 					}
 				}
 			}
 			_ => {
 				let token = self.peek();
-				Err(Error::WrongTokenType(
+				Error::WrongTokenType(
 					token.clone().line,
 					token.clone().lexeme,
 					"(".to_string(),
-				))
+				)
+				.to_result()
 			}
 		}
 	}
@@ -375,5 +345,15 @@ impl Parser {
 		}
 
 		self.previous()
+	}
+
+	fn advance_if<F>(&mut self, f: F) -> Option<&Token>
+	where
+		F: FnOnce(&Token) -> bool,
+	{
+		if f(self.peek()) {
+			return Some(self.advance());
+		}
+		None
 	}
 }

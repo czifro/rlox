@@ -13,7 +13,7 @@ mod parser;
 mod token;
 mod values;
 
-use expression::{Decl, /*AstPrinter,*/ Expr, Stmt, Visitor};
+use expression::{Decl, /*AstPrinter,*/ Expr, Stmt, Visitor,};
 use parser::Parser;
 use token::{Token, TokenType};
 
@@ -69,14 +69,17 @@ impl LoxInterpreter {
 			.map(|p| p.unwrap().path().to_string_lossy().to_string())
 			.collect::<Vec<String>>();
 
-		let path = FuzzySelect::with_theme(&ColorfulTheme::default())
-			.with_prompt("Choose a Lox file to interpret")
-			.default(0)
-			.items(&paths[..])
-			.interact()
-			.unwrap();
+		let path =
+			FuzzySelect::with_theme(&ColorfulTheme::default())
+				.with_prompt("Choose a Lox file to interpret")
+				.default(0)
+				.items(&paths[..])
+				.interact()
+				.unwrap();
 
-		let lox_source: String = String::from_utf8_lossy(&fs::read(paths[path].as_str())?).to_string();
+		let lox_source: String =
+			String::from_utf8_lossy(&fs::read(paths[path].as_str())?)
+				.to_string();
 
 		self.run(lox_source)
 	}
@@ -85,10 +88,11 @@ impl LoxInterpreter {
 		println!("Lox REPL (enter `exit` to quit)");
 
 		loop {
-			let input: String = Input::with_theme(&ColorfulTheme::default())
-				.with_prompt("> ")
-				.interact_text()
-				.unwrap();
+			let input: String =
+				Input::with_theme(&ColorfulTheme::default())
+					.with_prompt("> ")
+					.interact_text()
+					.unwrap();
 
 			match input.trim().to_lowercase().as_str() {
 				"exit" => break,
@@ -116,7 +120,9 @@ impl LoxInterpreter {
 		if errs.len() > 0 {
 			return Err(io::Error::new(
 				io::ErrorKind::Other,
-				format!("Errors occurred while tokenizing source:\n{errs}"),
+				format!(
+					"Errors occurred while tokenizing source:\n{errs}"
+				),
 			));
 		}
 
@@ -151,7 +157,10 @@ impl LoxInterpreter {
 }
 
 impl Visitor<values::LoxValue, Decl> for LoxInterpreter {
-	fn visit(&mut self, decl: &Decl) -> Result<values::LoxValue, error::Error> {
+	fn visit(
+		&mut self,
+		decl: &Decl,
+	) -> Result<values::LoxValue, error::Error> {
 		use values::LoxValue;
 		match decl {
 			Decl::Declaration(tok, expr) => {
@@ -170,7 +179,10 @@ impl Visitor<values::LoxValue, Decl> for LoxInterpreter {
 }
 
 impl Visitor<values::LoxValue, Stmt> for LoxInterpreter {
-	fn visit(&mut self, stmt: &Stmt) -> Result<values::LoxValue, error::Error> {
+	fn visit(
+		&mut self,
+		stmt: &Stmt,
+	) -> Result<values::LoxValue, error::Error> {
 		use values::{LoxType, LoxValue};
 		match stmt {
 			Stmt::Expression(e) => e.accept(self),
@@ -180,16 +192,17 @@ impl Visitor<values::LoxValue, Stmt> for LoxInterpreter {
 					return Err(error::Error::RuntimeError(
 						tok.line,
 						ie.to_owned(),
-						"Expected condition to resolve to boolean value".to_string(),
+						"Expected condition to resolve to boolean value"
+							.to_string(),
 					));
 				}
 				if cond == LoxValue::Bool(true) {
 					return s.accept(self);
 				}
-				
+
 				match ee {
 					None => Ok(LoxValue::Nil),
-					Some(ee) => ee.accept(self)
+					Some(ee) => ee.accept(self),
 				}
 			}
 			Stmt::Print(e) => {
@@ -219,18 +232,23 @@ impl Visitor<values::LoxValue, Stmt> for LoxInterpreter {
 }
 
 impl Visitor<values::LoxValue, Expr> for LoxInterpreter {
-	fn visit(&mut self, expr: &Expr) -> Result<values::LoxValue, error::Error> {
+	fn visit(
+		&mut self,
+		expr: &Expr,
+	) -> Result<values::LoxValue, error::Error> {
 		use values::{LoxType, LoxValue};
 		match expr {
 			Expr::Literal(tok) => Ok(LoxValue::from(tok.clone())),
-			Expr::Identifier(tok) => match self.environment.get(&tok.lexeme) {
-				Some(v) => Ok(v.clone()),
-				_ => Err(error::Error::RuntimeError(
-					tok.line,
-					expr.to_owned(),
-					format!("Undefined variable: {:}", tok.lexeme),
-				)),
-			},
+			Expr::Identifier(tok) => {
+				match self.environment.get(&tok.lexeme) {
+					Some(v) => Ok(v.clone()),
+					_ => Err(error::Error::RuntimeError(
+						tok.line,
+						expr.to_owned(),
+						format!("Undefined variable: {:}", tok.lexeme),
+					)),
+				}
+			}
 			Expr::Assign(ident, sub_expr) => {
 				let value = sub_expr.accept(self)?;
 				let _ = self
@@ -247,7 +265,9 @@ impl Visitor<values::LoxValue, Expr> for LoxInterpreter {
 				TokenType::Minus => {
 					let output = sub_expr.accept(self)?;
 					match output {
-						LoxValue::Number(f) => Ok(LoxValue::Number(-1.0_f64 * f)),
+						LoxValue::Number(f) => {
+							Ok(LoxValue::Number(-1.0_f64 * f))
+						}
 						_ => Err(error::Error::WrongType(
 							op.line,
 							expr.to_owned(),
@@ -271,7 +291,13 @@ impl Visitor<values::LoxValue, Expr> for LoxInterpreter {
 				_ => unreachable!("Unary operator: {:?}", op.token_type),
 			},
 			Expr::Binary(left, op, right) => {
-				expression::visit_binary_expression(expr, left.clone(), op.clone(), right.clone(), self)
+				expression::visit_binary_expression(
+					expr,
+					left.clone(),
+					op.clone(),
+					right.clone(),
+					self,
+				)
 			}
 		}
 	}

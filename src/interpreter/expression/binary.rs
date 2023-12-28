@@ -19,11 +19,18 @@ where
 		TokenType::BangEqual | TokenType::EqualEqual => {
 			visit_equality_expression(expr, left, op, right)
 		}
-		TokenType::Greater | TokenType::GreaterEqual | TokenType::Less | TokenType::LessEqual => {
+		TokenType::Greater
+		| TokenType::GreaterEqual
+		| TokenType::Less
+		| TokenType::LessEqual => {
 			visit_comparison_expression(expr, left, op, right)
 		}
-		TokenType::Star | TokenType::Slash => visit_factor_expression(expr, left, op, right),
-		TokenType::Minus | TokenType::Plus => visit_term_expression(expr, left, op, right),
+		TokenType::Star | TokenType::Slash => {
+			visit_factor_expression(expr, left, op, right)
+		}
+		TokenType::Minus | TokenType::Plus => {
+			visit_term_expression(expr, left, op, right)
+		}
 		_ => unreachable!("Binary operator: {:?}", op.token_type),
 	}
 }
@@ -34,7 +41,10 @@ fn visit_equality_expression(
 	op: Token,
 	right: LoxValue,
 ) -> Result<LoxValue, Error> {
-	if !left.is_nil() && !right.is_nil() && !left.is_same_type_as(&right) {
+	if !left.is_nil()
+		&& !right.is_nil()
+		&& !left.is_same_type_as(&right)
+	{
 		return Err(Error::IncompatibleTypes(
 			op.line,
 			expr.to_owned(),
@@ -45,7 +55,9 @@ fn visit_equality_expression(
 	match op.token_type.clone() {
 		TokenType::BangEqual => Ok(LoxValue::Bool(left != right)),
 		TokenType::EqualEqual => Ok(LoxValue::Bool(left == right)),
-		_ => unreachable!("Comparison operator: {:?}", op.token_type),
+		_ => {
+			unreachable!("Comparison operator: {:?}", op.token_type)
+		}
 	}
 }
 
@@ -55,7 +67,10 @@ fn visit_comparison_expression(
 	op: Token,
 	right: LoxValue,
 ) -> Result<LoxValue, Error> {
-	if !left.is_nil() && !right.is_nil() && !left.is_same_type_as(&right) {
+	if !left.is_nil()
+		&& !right.is_nil()
+		&& !left.is_same_type_as(&right)
+	{
 		return Err(Error::IncompatibleTypes(
 			op.line,
 			expr.to_owned(),
@@ -65,7 +80,10 @@ fn visit_comparison_expression(
 	}
 	match op.token_type.clone() {
 		TokenType::Greater => {
-			if left.is_nil() || right.is_nil() || !left.is_same_type_as(&right) {
+			if left.is_nil()
+				|| right.is_nil()
+				|| !left.is_same_type_as(&right)
+			{
 				return Err(Error::IncompatibleTypes(
 					op.line,
 					expr.to_owned(),
@@ -76,7 +94,10 @@ fn visit_comparison_expression(
 			Ok(LoxValue::Bool(left > right))
 		}
 		TokenType::GreaterEqual => {
-			if left.is_nil() || right.is_nil() || !left.is_same_type_as(&right) {
+			if left.is_nil()
+				|| right.is_nil()
+				|| !left.is_same_type_as(&right)
+			{
 				return Err(Error::IncompatibleTypes(
 					op.line,
 					expr.to_owned(),
@@ -87,7 +108,10 @@ fn visit_comparison_expression(
 			Ok(LoxValue::Bool(left >= right))
 		}
 		TokenType::Less => {
-			if left.is_nil() || right.is_nil() || !left.is_same_type_as(&right) {
+			if left.is_nil()
+				|| right.is_nil()
+				|| !left.is_same_type_as(&right)
+			{
 				return Err(Error::IncompatibleTypes(
 					op.line,
 					expr.to_owned(),
@@ -98,7 +122,10 @@ fn visit_comparison_expression(
 			Ok(LoxValue::Bool(left < right))
 		}
 		TokenType::LessEqual => {
-			if left.is_nil() || right.is_nil() || !left.is_same_type_as(&right) {
+			if left.is_nil()
+				|| right.is_nil()
+				|| !left.is_same_type_as(&right)
+			{
 				return Err(Error::IncompatibleTypes(
 					op.line,
 					expr.to_owned(),
@@ -108,7 +135,9 @@ fn visit_comparison_expression(
 			}
 			Ok(LoxValue::Bool(left <= right))
 		}
-		_ => unreachable!("Comparison operator: {:?}", op.token_type),
+		_ => {
+			unreachable!("Comparison operator: {:?}", op.token_type)
+		}
 	}
 }
 
@@ -120,7 +149,9 @@ fn visit_factor_expression(
 ) -> Result<LoxValue, Error> {
 	match op.token_type.clone() {
 		TokenType::Star => match (&left, &right) {
-			(LoxValue::Number(l), LoxValue::Number(r)) => Ok(LoxValue::Number(l * r)),
+			(LoxValue::Number(l), LoxValue::Number(r)) => {
+				Ok(LoxValue::Number(l * r))
+			}
 			(_, LoxValue::Number(_)) => Err(Error::IncompatibleTypes(
 				op.line,
 				expr.to_owned(),
@@ -184,7 +215,9 @@ fn visit_term_expression(
 ) -> Result<LoxValue, Error> {
 	match op.token_type.clone() {
 		TokenType::Minus => match (&left, &right) {
-			(LoxValue::Number(l), LoxValue::Number(r)) => Ok(LoxValue::Number(l - r)),
+			(LoxValue::Number(l), LoxValue::Number(r)) => {
+				Ok(LoxValue::Number(l - r))
+			}
 			(_, LoxValue::Number(_)) => Err(Error::IncompatibleTypes(
 				op.line,
 				expr.to_owned(),
@@ -206,8 +239,12 @@ fn visit_term_expression(
 			)),
 		},
 		TokenType::Plus => match (&left, &right) {
-			(LoxValue::Number(l), LoxValue::Number(r)) => Ok(LoxValue::Number(l + r)),
-			(LoxValue::String(l), LoxValue::String(r)) => Ok(LoxValue::String(l.to_owned() + r.as_str())),
+			(LoxValue::Number(l), LoxValue::Number(r)) => {
+				Ok(LoxValue::Number(l + r))
+			}
+			(LoxValue::String(l), LoxValue::String(r)) => {
+				Ok(LoxValue::String(l.to_owned() + r.as_str()))
+			}
 			(LoxValue::Number(_), _) => Err(Error::IncompatibleTypes(
 				op.line,
 				expr.to_owned(),

@@ -96,7 +96,10 @@ impl Token {
 		tokens
 	}
 
-	fn try_parse<'a>(source: &mut Peekable<Chars<'a>>, line: &mut i32) -> Result<Self, Error> {
+	fn try_parse<'a>(
+		source: &mut Peekable<Chars<'a>>,
+		line: &mut i32,
+	) -> Result<Self, Error> {
 		use TokenType::*;
 		let c = match source.next() {
 			Some(v) => v,
@@ -307,48 +310,55 @@ impl Token {
 				loop {
 					let c = source.peek();
 					match c {
-						Some(c) => {
-							match c {
-								'0'..='9' => literal.push(source.next().unwrap()),
-								'.' => {
-									if is_decimal {
-										return Err(Error::UnparsableNumber(
-											*line,
-											"invalid float literal".to_string(),
-										));
-									}
-									is_decimal = true;
-									literal.push(source.next().unwrap());
+						Some(c) => match c {
+							'0'..='9' => literal.push(source.next().unwrap()),
+							'.' => {
+								if is_decimal {
+									return Err(Error::UnparsableNumber(
+										*line,
+										"invalid float literal".to_string(),
+									));
 								}
-								_ => {
-									if is_decimal {
-										return literal
-											.parse::<f32>()
-											.map_err(|e| Error::UnparsableNumber(*line, e.to_string()))
-											.map(|float| Token {
-												token_type: Float,
-												lexeme: literal,
-												literal: Some(TokenLiteral::Float(float)),
-												line: *line,
-											});
-									}
+								is_decimal = true;
+								literal.push(source.next().unwrap());
+							}
+							_ => {
+								if is_decimal {
 									return literal
-										.parse::<i32>()
-										.map_err(|e| Error::UnparsableNumber(*line, e.to_string()))
-										.map(|int| Token {
-											token_type: Integer,
+										.parse::<f32>()
+										.map_err(|e| {
+											Error::UnparsableNumber(
+												*line,
+												e.to_string(),
+											)
+										})
+										.map(|float| Token {
+											token_type: Float,
 											lexeme: literal,
-											literal: Some(TokenLiteral::Integer(int)),
+											literal: Some(TokenLiteral::Float(float)),
 											line: *line,
 										});
 								}
+								return literal
+									.parse::<i32>()
+									.map_err(|e| {
+										Error::UnparsableNumber(*line, e.to_string())
+									})
+									.map(|int| Token {
+										token_type: Integer,
+										lexeme: literal,
+										literal: Some(TokenLiteral::Integer(int)),
+										line: *line,
+									});
 							}
-						}
+						},
 						_ => {
 							if is_decimal {
 								return literal
 									.parse::<f32>()
-									.map_err(|e| Error::UnparsableNumber(*line, e.to_string()))
+									.map_err(|e| {
+										Error::UnparsableNumber(*line, e.to_string())
+									})
 									.map(|float| Token {
 										token_type: Float,
 										lexeme: literal,
@@ -358,7 +368,9 @@ impl Token {
 							}
 							return literal
 								.parse::<i32>()
-								.map_err(|e| Error::UnparsableNumber(*line, e.to_string()))
+								.map_err(|e| {
+									Error::UnparsableNumber(*line, e.to_string())
+								})
 								.map(|int| Token {
 									token_type: Integer,
 									lexeme: literal,
@@ -397,14 +409,18 @@ impl Token {
 					let c = source.peek();
 					match c {
 						Some(c) => match c {
-							'a'..='z' | 'A'..='Z' | '0'..='9' | '_' => literal.push(source.next().unwrap()),
+							'a'..='z' | 'A'..='Z' | '0'..='9' | '_' => {
+								literal.push(source.next().unwrap())
+							}
 							_ => {
 								let ttype = keyword(literal.clone());
 								if ttype == True || ttype == False {
 									return Ok(Token {
 										token_type: ttype,
 										lexeme: literal.clone(),
-										literal: Some(TokenLiteral::Bool(literal.as_str() == "true")),
+										literal: Some(TokenLiteral::Bool(
+											literal.as_str() == "true",
+										)),
 										line: *line,
 									});
 								}
@@ -430,7 +446,9 @@ impl Token {
 								return Ok(Token {
 									token_type: ttype,
 									lexeme: literal.clone(),
-									literal: Some(TokenLiteral::Bool(literal.as_str() == "true")),
+									literal: Some(TokenLiteral::Bool(
+										literal.as_str() == "true",
+									)),
 									line: *line,
 								});
 							}

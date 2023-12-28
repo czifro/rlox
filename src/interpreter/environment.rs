@@ -1,7 +1,4 @@
-use std::{
-	collections::BTreeMap,
-	rc::Rc,
-};
+use std::{collections::BTreeMap, rc::Rc};
 
 use super::values::LoxValue;
 
@@ -48,7 +45,11 @@ impl Environment {
 		}
 	}
 
-	pub fn update(&mut self, name: String, value: LoxValue) -> Option<LoxValue> {
+	pub fn update(
+		&mut self,
+		name: String,
+		value: LoxValue,
+	) -> Option<LoxValue> {
 		match &mut self.enclosing {
 			None => self.update_inner(name, value),
 			Some(env) => {
@@ -58,7 +59,11 @@ impl Environment {
 		}
 	}
 
-	fn update_inner(&mut self, name: String, value: LoxValue) -> Option<LoxValue> {
+	fn update_inner(
+		&mut self,
+		name: String,
+		value: LoxValue,
+	) -> Option<LoxValue> {
 		if let None = self.inner.get(&name) {
 			return None;
 		}
