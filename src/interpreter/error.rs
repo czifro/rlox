@@ -1,6 +1,10 @@
 use std::fmt::{Display, Formatter, Result};
 
-use super::{expression::*, token::Token, values::LoxType};
+use super::{
+	expression::*,
+	token::Token,
+	values::{LoxValue, LoxTypeInfo},
+};
 
 #[derive(Debug, Clone)]
 pub enum Error {
@@ -10,9 +14,25 @@ pub enum Error {
 	WrongTokenType(i32, String, String),
 	InvalidAssignmentTarget(i32, String),
 	UnexpectedEof(i32),
-	WrongType(i32, Expr, LoxType, LoxType),
-	IncompatibleTypes(i32, Expr, LoxType, LoxType),
-	InoperableTypes(Token, Expr, Vec<LoxType>, LoxType, LoxType),
+	WrongType(
+		i32,
+		Expr,
+		LoxTypeInfo<LoxValue>,
+		LoxTypeInfo<LoxValue>,
+	),
+	IncompatibleTypes(
+		i32,
+		Expr,
+		LoxTypeInfo<LoxValue>,
+		LoxTypeInfo<LoxValue>,
+	),
+	InoperableTypes(
+		Token,
+		Expr,
+		Vec<LoxTypeInfo<LoxValue>>,
+		LoxTypeInfo<LoxValue>,
+		LoxTypeInfo<LoxValue>,
+	),
 	RuntimeError(i32, Expr, String),
 	UndefinedVariable(i32, String), // Eof,
 }
