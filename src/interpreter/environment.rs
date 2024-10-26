@@ -1,104 +1,74 @@
-use std::{collections::BTreeMap, rc::Rc};
+use std::{collections::BTreeMap, rc::Rc, sync::RwLock};
 
 use super::values::LoxValue;
 
 #[derive(Default)]
 pub struct Environment {
-	inner: Rc<BTreeMap<String, LoxValue>>,
-	enclosing: Option<Rc<Environment>>,
+    inner: Rc<BTreeMap<String, LoxValue>>,
+    enclosing: Option<Rc<Environment>>,
+	enclosed: Option<Rc<RwLock<>
 }
 
 impl Clone for Environment {
-	fn clone(&self) -> Self {
-		Self {
-			inner: Rc::clone(&self.inner),
-			enclosing: self.enclosing.clone(),
-		}
-	}
+    fn clone(&self) -> Self {
+        Self {
+            inner: Rc::clone(&self.inner),
+            enclosing: self.enclosing.clone(),
+        }
+    }
 }
 
 impl Environment {
-	pub fn define(&mut self, name: String, value: LoxValue) {
-		match &mut self.enclosing {
-			None => {
-				let env = Rc::get_mut(&mut self.inner).unwrap();
-				env.insert(name, value);
-			}
-			Some(env) => {
-				let env = Rc::get_mut(env).unwrap();
-				env.define(name, value);
-			}
-		};
-	}
+    pub fn enclose(env: Rc<Environment>) -> Self {
+        Self {
+            inner: Rc::default(),
+            enclosing: Some(env),
+        }
+    }
 
-	pub fn get(&self, name: &String) -> Option<&LoxValue> {
-		match &self.enclosing {
-			None => self.inner.get(name),
-			Some(env) => {
-				let env = Rc::as_ref(env);
+    pub fn drop_enclusure(self) -> Self {
+        *Rc::as_ref(&self.enclosing.unwrap())
+    }
 
-				match env.get(name) {
-					None => self.inner.get(name),
-					val => val,
-				}
-			}
-		}
-	}
+    pub fn define(&mut self, name: String, value: LoxValue) {
+        let env = Rc::get_mut(&mut self.inner).unwrap();
+        env.insert(name, value);
+    }
 
-	pub fn update(
-		&mut self,
-		name: String,
-		value: LoxValue,
-	) -> Option<LoxValue> {
-		match &mut self.enclosing {
-			None => self.update_inner(name, value),
-			Some(env) => {
-				let env = Rc::get_mut(env).unwrap();
-				env.update(name, value)
-			}
-		}
-	}
+    pub fn get(&self, name: &String) -> Option<&LoxValue> {
+        let env = Rc::as_ref(&self.inner);
+        if let Some(val) = env.get(name) {
+            return Some(val);
+        }
 
-	fn update_inner(
-		&mut self,
-		name: String,
-		value: LoxValue,
-	) -> Option<LoxValue> {
-		if let None = self.inner.get(&name) {
-			return None;
-		}
-		let env = Rc::get_mut(&mut self.inner).unwrap();
-		env.insert(name, value)
-	}
+        match &self.enclosing {
+            None => None,
+            Some(env) => {
+                let env = Rc::as_ref(env);
 
-	pub fn create_enclosing(&mut self) {
-		match &mut self.enclosing {
-			None => {
-				self.enclosing = Some(Rc::default());
-			}
-			Some(env) => {
-				let env = Rc::get_mut(env).unwrap();
-				env.create_enclosing();
-			}
-		};
-	}
+                match env.get(name) {
+                    None => self.inner.get(name),
+                    val => val,
+                }
+            }
+        }
+    }
 
-	pub fn drop_enclosing(&mut self) -> Option<Environment> {
-		let env = match &mut self.enclosing {
-			None => None,
-			Some(env) => {
-				let env = Rc::get_mut(env).unwrap();
-				match env.drop_enclosing() {
-					Some(env) => return Some(env),
-					None => Some(env.to_owned()),
-				}
-			}
-		};
+    pub fn update(&mut self, name: String, value: LoxValue) -> Option<LoxValue> {
+        match &mut self.enclosing {
+            None => self.update_inner(name, value),
+            Some(env) => {
+                let env = Rc::get_mut(env).unwrap();
+                env.update(name, value)
+            }
+        }
+    }
 
-		if env.is_some() {
-			self.enclosing = None;
-		}
-
-		env
-	}
+    fn update_inner(&mut self, name: String, value: LoxValue) -> Option<LoxValue> {
+        if let None = self.inner.get(&name) {
+            return None;
+        }
+        let env = Rc::get_mut(&mut self.inner).unwrap();
+        env.insert(name, value)
+    }
 }

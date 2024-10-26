@@ -5,10 +5,10 @@ use crate::prelude::*;
 
 #[derive(Debug, Clone)]
 pub enum LoxValue {
-	Nil,
-	Number(f64),
-	Bool(bool),
-	String(String),
+    Nil,
+    Number(f64),
+    Bool(bool),
+    String(String),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -20,15 +20,15 @@ pub enum LoxType {
 }
 
 impl From<LoxType> for String {
-	fn from(value: LoxType) -> Self {
-		use LoxType::*;
-	  match value {
-			Nil => "nil".to_string(),
-			Number => "number".to_string(),
-			Bool => "bool".to_string(),
-			String => "string".to_string(),
-		}
-	}
+    fn from(value: LoxType) -> Self {
+        use LoxType::*;
+        match value {
+            Nil => "nil".to_string(),
+            Number => "number".to_string(),
+            Bool => "bool".to_string(),
+            String => "string".to_string(),
+        }
+    }
 }
 
 impl LoxValue {
@@ -48,18 +48,25 @@ impl LoxValue {
     pub fn is_nil(&self) -> bool {
         self.lox_type() == LoxType::Nil
     }
+
+	pub fn into_bool(self) -> Option<bool> {
+		match self {
+			Self::Bool(b) => Some(b),
+			_ => None,
+		}
+	}
 }
 
 impl PartialEq for LoxValue {
-	fn eq(&self, other: &Self) -> bool {
-		match (self, other) {
-			(Self::Number(lhs), Self::Number(rhs)) => lhs == rhs,
-			(Self::String(lhs), Self::String(rhs)) => lhs == rhs,
-			(Self::Bool(lhs), Self::Bool(rhs)) => lhs == rhs,
-			(Self::Nil, Self::Nil) => true,
-			_ => false,
-		}
-	}
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Number(lhs), Self::Number(rhs)) => lhs == rhs,
+            (Self::String(lhs), Self::String(rhs)) => lhs == rhs,
+            (Self::Bool(lhs), Self::Bool(rhs)) => lhs == rhs,
+            (Self::Nil, Self::Nil) => true,
+            _ => false,
+        }
+    }
 }
 
 impl PartialOrd for LoxValue {
@@ -73,49 +80,49 @@ impl PartialOrd for LoxValue {
 }
 
 impl Display for LoxValue {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		match self {
-			Self::Number(n) => write!(f, "{}", n),
-			Self::String(s) => write!(f, "{}", s),
-			Self::Bool(b) => write!(f, "{}", b),
-			Self::Nil => write!(f, "nil"),
-		}
-	}
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Number(n) => write!(f, "{}", n),
+            Self::String(s) => write!(f, "{}", s),
+            Self::Bool(b) => write!(f, "{}", b),
+            Self::Nil => write!(f, "nil"),
+        }
+    }
 }
 
 impl Display for LoxType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-			Self::Number => write!(f, "number"),
-			Self::String => write!(f, "string"),
-			Self::Bool => write!(f, "bool"),
-			Self::Nil => write!(f, "nil"),
+            Self::Number => write!(f, "number"),
+            Self::String => write!(f, "string"),
+            Self::Bool => write!(f, "bool"),
+            Self::Nil => write!(f, "nil"),
         }
     }
 }
 
 impl From<Token> for LoxValue {
-	fn from(token: Token) -> Self {
-		match token.token_type.clone() {
-			TokenType::String
-			| TokenType::True
-			| TokenType::False
-			| TokenType::Integer
-			| TokenType::Float => Self::from(token.literal.unwrap()),
-			TokenType::Nil => Self::Nil,
-			_ => unreachable!("Unexpected token type: {:?}", token.token_type),
-		}
-	}
+    fn from(token: Token) -> Self {
+        match token.token_type.clone() {
+            TokenType::String
+            | TokenType::True
+            | TokenType::False
+            | TokenType::Integer
+            | TokenType::Float => Self::from(token.literal.unwrap()),
+            TokenType::Nil => Self::Nil,
+            _ => unreachable!("Unexpected token type: {:?}", token.token_type),
+        }
+    }
 }
 
 impl From<TokenLiteral> for LoxValue {
-	fn from(lit: TokenLiteral) -> Self {
-		match lit {
-			TokenLiteral::Nil(_) => Self::Nil,
-			TokenLiteral::Bool(b) => Self::Bool(b),
-			TokenLiteral::String(s) => Self::String(s),
-			TokenLiteral::Float(f) => Self::Number(f64::from(f)),
-			TokenLiteral::Integer(i) => Self::Number(f64::from(i)),
-		}
-	}
+    fn from(lit: TokenLiteral) -> Self {
+        match lit {
+            TokenLiteral::Nil(_) => Self::Nil,
+            TokenLiteral::Bool(b) => Self::Bool(b),
+            TokenLiteral::String(s) => Self::String(s),
+            TokenLiteral::Float(f) => Self::Number(f64::from(f)),
+            TokenLiteral::Integer(i) => Self::Number(f64::from(i)),
+        }
+    }
 }
